@@ -1,8 +1,21 @@
 # configuration.nix
-# NixOS configuration for a secure, stylish, AMD-based developer/gamer machine using Hyprland.
+# NixOS configuration for an AMD-based developer/gamer machine using Hyprland.
 
 { config, pkgs, ... }:
 
+let
+  # Custom scripts defined here for robustness, referenced via the Nix store.
+  midiScript = pkgs.writeScriptBin "midi.py" ''
+    #!${pkgs.python3}/bin/python3
+    # Your midi.py script content goes here.
+  '';
+
+  combineSinkScript = pkgs.writeScriptBin "combine-sink.sh" ''
+    #!/bin/sh
+    # Your combine-sink.sh script content goes here.
+  '';
+
+in
 {
   ############################################
   # 1. Boot & Hardware
@@ -10,22 +23,18 @@
 
   imports = [
     ./hardware-configuration.nix
+    # home-manager.nixosModules.home-manager # Uncomment if using Home Manager
   ];
 
   nixpkgs.config.allowUnfree = true;
-  
+
   boot.loader.efi.canTouchEfiVariables = true;
   boot.loader.systemd-boot.enable = true;
-  # rEFInd is not directly supported in NixOS as a boot.loader option.
-  # You can still use rEFInd to chainload into systemd-boot if desired.
-
-  boot.initrd.luks.devices."cryptroot" = {
-    device = "/dev/disk/by-uuid/PUT-YOUR-UUID-HERE";
-    preLVM = true;
-  };
+  # rEFInd can chainload systemd-boot.
 
   fileSystems."/" = {
-    device = "/dev/mapper/cryptroot";
+    # IMPORTANT: Verify this path with your hardware-configuration.nix or `lsblk -f` for your unencrypted root.
+    device = "/dev/disk/by-uuid/YOUR-UNENCRYPTED-ROOT-UUID-HERE";
     fsType = "btrfs";
     options = ["compress=zstd" "noatime" "space_cache=v2"];
   };
@@ -39,10 +48,11 @@
 
   ############################################
   # 3. Localization
-  ############################################
+  ###########################################
 
   time.timeZone = "Europe/Helsinki";
   i18n.defaultLocale = "en_US.UTF-8";
+  # Override specific locale categories for Finnish formatting.
   i18n.extraLocaleSettings = {
     LC_TIME = "fi_FI.UTF-8";
     LC_MONETARY = "fi_FI.UTF-8";
@@ -68,13 +78,13 @@
     shell = pkgs.fish;
   };
 
-  security.sudo.wheelNeedsPassword = false;
+  security.sudo.wheelNeedsPassword = false; # Disables password for sudo (wheel group).
 
   ############################################
   # 5. AMD GPU Drivers & ROCm
   ############################################
 
-  services.xserver.videoDrivers = [ "amdgpu" ];
+  services.xserver.videoDrivers = [ "amdgpu" ]; # Mostly for X11, but harmless for Wayland.
 
   hardware.opengl = {
     enable = true;
@@ -104,7 +114,10 @@
     jack.enable = true;
   };
 
-    environment.etc."pipewire/pipewire-pulse.conf".source = "/home/user/.config/pipewire/pipewire-pulse.conf";
+  security.rtkit.enable = true; # Enabled for better real-time audio performance with PipeWire.
+
+  hardware.bluetooth.enable = true;
+  services.blueman.enable = true;
 
   ############################################
   # 7. Hyprland and Desktop Environment
@@ -113,40 +126,31 @@
   programs.hyprland.enable = true;
 
   services.dbus.enable = true;
-  services.xserver.enable = false;
+  services.xserver.enable = false; # Crucial: Disables X server for Wayland setup.
 
   environment.systemPackages = with pkgs; [
     easyeffects
-    hyprland
     waybar
-    rofi-wayland
-    dunst
+    wofi
+    mako
     alacritty
     kitty
     grim slurp wl-clipboard
     swaylock-effects swayidle
-    hyprpaper hyprpicker nwg-look
+    swww hyprpicker nwg-look
     neofetch htop btop git lazygit direnv
     vscode nodejs npm pnpm python3
-    fish starship oh-my-zsh
+    fish starship zsh
     steam heroic prism-launcher
     gamemode
     libva libva-utils vulkan-tools vulkan-validation-layers
-    font-manager
-    (nerdfonts.override { fonts = [ "FiraCode" "JetBrainsMono" ]; })
-
-    # Hyprland must-haves
-    mako
-    wofi
-    swww
-    wlogout
+    font-manager # Be aware of declarative config limitations with graphical font managers.
     thunar
-
-    # NixOS must-haves
     nix-direnv
     nix-flatpak
     devenv
     disko
+    catppuccin-gtk.mochi.compact.lavender.dark
   ];
 
   programs.fish.enable = true;
@@ -159,7 +163,6 @@
   programs.direnv.enable = true;
   programs.direnv.nix-direnv.enable = true;
 
-  # Autologin to Hyprland using greetd
   services.greetd = {
     enable = true;
     settings = {
@@ -168,22 +171,11 @@
         user = "user";
       };
     };
-    autoLogin = {
-      enable = true;
-      user = "user";
-    };
+    # Autologin is disabled. You will be prompted for a password.
   };
 
   services.seatd.enable = true;
-  services.greetd = {
-    enable = true;
-    settings.default_session = {
-      command = "Hyprland";
-      user = "user";
-    };
-  };
 
-  # Idle timeout and locking
   services.swayidle.enable = true;
   services.swayidle.settings = [
     { timeout = 300; command = "${pkgs.swaylock-effects}/bin/swaylock -f"; }
@@ -196,73 +188,15 @@
   ############################################
 
   fonts.fonts = with pkgs; [
-    fira-code jetbrains-mono
+    fira-code
+    jetbrains-mono
   ];
 
   environment.variables = {
     GTK_THEME = "Catppuccin-Mocha-Compact-Lavender-Dark";
   };
 
-  # You can optionally apply custom Hyprland configs in /home/user/.config/hypr/
-
-  # Common keybindings for Hyprland (apply these in your hyprland.conf)
-  # Application Launchers
-  #   bind = SUPER, Return, exec, kitty
-  #   bind = SUPER, D, exec, rofi -show drun
-  #   bind = SUPER, E, exec, thunar
-  #   bind = SUPER, B, exec, brave
-  #   bind = SUPER, V, exec, cliphist list | rofi -dmenu | wl-copy
-  #   bind = SUPER_SHIFT, Q, exec, wlogout
-
-  # Window Management
-  #   bind = SUPER, H, movefocus, l
-  #   bind = SUPER, J, movefocus, d
-  #   bind = SUPER, K, movefocus, u
-  #   bind = SUPER, L, movefocus, r
-  #   bind = SUPER_SHIFT, H, movewindow, l
-  #   bind = SUPER_SHIFT, J, movewindow, d
-  #   bind = SUPER_SHIFT, K, movewindow, u
-  #   bind = SUPER_SHIFT, L, movewindow, r
-  #   bind = SUPER, F, fullscreen
-  #   bind = SUPER, Space, togglefloating
-  #   bind = SUPER, Q, killactive
-  #   bind = SUPER, A, togglespecialworkspace
-
-  # Mouse Controls
-  #   bindm = SUPER, mouse:272, movewindow
-  #   bindm = SUPER, mouse:273, resizewindow
-  #   bindm = SUPER, mouse:274, killactive
-  #   bind = SUPER, mouse_up, exec, hyprctl dispatch opacityactive +0.05
-  #   bind = SUPER, mouse_down, exec, hyprctl dispatch opacityactive -0.05
-
-  # Workspace Management
-  #   bind = SUPER, 1, workspace, 1
-  #   bind = SUPER, 2, workspace, 2
-  #   bind = SUPER, 3, workspace, 3
-  #   bind = SUPER, 4, workspace, 4
-  #   bind = SUPER, 5, workspace, 5
-  #   bind = SUPER, 6, workspace, 6
-  #   bind = SUPER, 7, workspace, 7
-  #   bind = SUPER, 8, workspace, 8
-  #   bind = SUPER, 9, workspace, 9
-  #   bind = SUPER_SHIFT, 1, movetoworkspace, 1
-  #   bind = SUPER_SHIFT, 2, movetoworkspace, 2
-  #   bind = SUPER_SHIFT, 3, movetoworkspace, 3
-  #   bind = SUPER_SHIFT, 4, movetoworkspace, 4
-  #   bind = SUPER_SHIFT, 5, movetoworkspace, 5
-  #   bind = SUPER_SHIFT, 6, movetoworkspace, 6
-  #   bind = SUPER_SHIFT, 7, movetoworkspace, 7
-  #   bind = SUPER_SHIFT, 8, movetoworkspace, 8
-  #   bind = SUPER_SHIFT, 9, movetoworkspace, 9
-  #   bind = SUPER, Tab, workspace, special
-
-  # System Controls
-  #   binde = , XF86AudioRaiseVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%+
-  #   binde = , XF86AudioLowerVolume, exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
-  #   binde = , XF86AudioMute, exec, wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
-  #   binde = , XF86MonBrightnessUp, exec, brightnessctl set +10%
-  #   binde = , XF86MonBrightnessDown, exec, brightnessctl set 10%-
-
+  ############################################
   # 9. NFS Mounts
   ############################################
 
@@ -310,7 +244,7 @@
     description = "MIDI Audio Controller";
     wantedBy = [ "default.target" ];
     serviceConfig = {
-      ExecStart = "/home/user/scripts/midi.py";
+      ExecStart = "${midiScript}/bin/midi.py";
       Restart = "on-failure";
     };
   };
@@ -319,7 +253,7 @@
     description = "Custom combined audio sink setup";
     wantedBy = [ "default.target" ];
     serviceConfig = {
-      ExecStart = "/home/user/.local/bin/combine-sink.sh";
+      ExecStart = "${combineSinkScript}/bin/combine-sink.sh";
       Restart = "on-failure";
     };
   };
