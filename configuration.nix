@@ -16,8 +16,9 @@
 
   boot.loader.systemd-boot.enable = false;
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.loader.refind.enable = true;
-  boot.loader.refind.useNvram = true;
+  boot.loader.systemd-boot.enable = true;
+  # rEFInd is not directly supported in NixOS as a boot.loader option.
+  # You can still use rEFInd to chainload into systemd-boot if desired.
 
   boot.initrd.luks.devices."cryptroot" = {
     device = "/dev/disk/by-uuid/PUT-YOUR-UUID-HERE";
