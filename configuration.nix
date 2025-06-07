@@ -2,7 +2,7 @@
 # NixOS configuration for an AMD-based developer/gamer machine using Hyprland.
 # Now integrating Home Manager for user-specific configurations.
 
-{ config, pkgs, ... }:
+{ config, pkgs, home-manager, ... }: # <-- 'home-manager' added here
 
 let
   # Custom scripts defined here for robustness, referenced via the Nix store.
@@ -37,6 +37,7 @@ in
   imports = [
     ./hardware-configuration.nix
     # Enable Home Manager NixOS module. This will import your user's home.nix.
+    # Ensure the home-manager channel is added and updated for this to be found.
     home-manager.nixosModules.home-manager
   ];
 
