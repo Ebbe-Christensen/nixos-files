@@ -13,8 +13,7 @@
   ];
 
   nixpkgs.config.allowUnfree = true;
-
-  boot.loader.systemd-boot.enable = false;
+  
   boot.loader.efi.canTouchEfiVariables = true;
   boot.loader.systemd-boot.enable = true;
   # rEFInd is not directly supported in NixOS as a boot.loader option.
@@ -160,9 +159,20 @@
   programs.direnv.enable = true;
   programs.direnv.nix-direnv.enable = true;
 
-  # Autologin to Hyprland
-  services.getty.autoLogin.enable = true;
-  services.getty.autoLogin.user = "user";
+  # Autologin to Hyprland using greetd
+  services.greetd = {
+    enable = true;
+    settings = {
+      default_session = {
+        command = "Hyprland";
+        user = "user";
+      };
+    };
+    autoLogin = {
+      enable = true;
+      user = "user";
+    };
+  };
 
   services.seatd.enable = true;
   services.greetd = {
