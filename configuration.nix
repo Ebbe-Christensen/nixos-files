@@ -16,11 +16,8 @@
 
   boot.loader.systemd-boot.enable = false;
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.loader.refind = {
-    enable = true;
-    version = "latest";
-    useNvram = true;
-  };
+  boot.loader.refind.enable = true;
+  boot.loader.refind.useNvram = true;
 
   boot.initrd.luks.devices."cryptroot" = {
     device = "/dev/disk/by-uuid/PUT-YOUR-UUID-HERE";
