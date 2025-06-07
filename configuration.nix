@@ -2,7 +2,7 @@
 # NixOS configuration for an AMD-based developer/gamer machine using Hyprland.
 # Now integrating Home Manager for user-specific configurations.
 
-{ config, pkgs, home-manager, ... }: # <-- 'home-manager' added here
+{ config, pkgs, lib, ... }: # 'home-manager' is no longer needed in arguments
 
 let
   # Custom scripts defined here for robustness, referenced via the Nix store.
@@ -28,6 +28,11 @@ let
     # pw-cli create-node adapter '{factory.name=support.null-audio-sink node.name=CombinedSink media.class=Audio/Sink audio.channels=2 audio.position=FL,FR}'
   '';
 
+  # Explicitly fetch the Home Manager module from its tarball.
+  # This makes the home-manager module available directly, avoiding channel issues.
+  # IMPORTANT: Ensure 'release-25.05' matches your system.stateVersion.
+  homeManagerModule = import (builtins.fetchTarball "https://github.com/nix-community/home-manager/archive/release-25.05.tar.gz");
+
 in
 {
   ############################################
@@ -36,9 +41,8 @@ in
 
   imports = [
     ./hardware-configuration.nix
-    # Enable Home Manager NixOS module. This will import your user's home.nix.
-    # Ensure the home-manager channel is added and updated for this to be found.
-    home-manager.nixosModules.home-manager
+    # Enable Home Manager NixOS module using the explicitly fetched module.
+    homeManagerModule.nixosModules.home-manager
   ];
 
   nixpkgs.config.allowUnfree = true;
@@ -98,7 +102,8 @@ in
 
   # Define Home Manager configuration for the 'user'.
   # This imports the configuration from ./home.nix.
-  home-manager.users.user = { pkgs, ... }: {
+  # We pass pkgs and lib explicitly here, as required by home-manager's user module.
+  home-manager.users.user = { pkgs, lib, ... }: {
     imports = [ ./home.nix ];
   };
 
@@ -169,11 +174,6 @@ in
     catppuccin-gtk.mochi.compact.lavender.dark # GTK theme, needed system-wide for consistency.
   ];
 
-  # These programs are now managed by Home Manager in home.nix for the user.
-  # programs.fish.enable = true;
-  # programs.zsh.enable = true;
-  # programs.zsh.ohMyZsh.enable = true;
-
   programs.steam.enable = true;
   programs.gamemode.enable = true; # Enabled system-wide, but client binary might be in Home Manager.
 
@@ -193,14 +193,6 @@ in
 
   services.seatd.enable = true;
 
-  # Swayidle is now managed by Home Manager in home.nix.
-  # services.swayidle.enable = true;
-  # services.swayidle.settings = [
-  #   { timeout = 300; command = "${pkgs.swaylock-effects}/bin/swaylock -f"; }
-  #   { timeout = 600; command = "systemctl suspend"; }
-  #   { resumeCommand = "hyprctl dispatch dpms on"; }
-  # ];
-
   ############################################
   # 8. Theming and Aesthetics
   ############################################
@@ -209,11 +201,6 @@ in
     fira-code
     jetbrains-mono
   ];
-
-  # GTK_THEME is now managed by Home Manager in home.nix for the user.
-  # environment.variables = {
-  #   GTK_THEME = "Catppuccin-Mocha-Compact-Lavender-Dark";
-  # };
 
   ############################################
   # 9. NFS Mounts
