@@ -107,11 +107,7 @@
     jack.enable = true;
   };
 
-  environment.systemPackages = with pkgs; [
-    easyeffects
-  ];
-
-  environment.etc."pipewire/pipewire-pulse.conf".source = "/home/user/.config/pipewire/pipewire-pulse.conf";
+    environment.etc."pipewire/pipewire-pulse.conf".source = "/home/user/.config/pipewire/pipewire-pulse.conf";
 
   ############################################
   # 7. Hyprland and Desktop Environment
@@ -123,6 +119,7 @@
   services.xserver.enable = false;
 
   environment.systemPackages = with pkgs; [
+    easyeffects
     hyprland
     waybar
     rofi-wayland
